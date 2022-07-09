@@ -2,7 +2,7 @@
 //import groovy.json.JsonSlurper
 
 def lookupid = params.K8SSECRETID
-def SOURCE_DATA_JSONFILE = "k8s-secrets-metadata-v2.json"
+def source_data_jsonfile = "k8s-secrets-metadata-v2.json"
 
 pipeline {
     agent {label 'master'}
@@ -25,7 +25,7 @@ pipeline {
         stage('read-un') {
             steps {
                     script {
-                        def config = readJSON(text: readFile("./"+SOURCE_DATA_JSONFILE).trim())
+                        def config = readJSON(text: readFile("./"+source_data_jsonfile).trim())
                         def K8SSECRETCN           = config.AllSecret.find { it.ID == lookupid }.ClusterName
                         def K8SNAMESPACE          = config.AllSecret.find { it.ID == lookupid }.NameSpace
                         def K8SSECRET_CREATE_UN   = config.AllSecret.find { it.ID == lookupid }.SecretsID.CREATE.UN
