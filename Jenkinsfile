@@ -1,11 +1,14 @@
-import jenkins.model.*
+//import jenkins.model.*
 //import groovy.json.JsonSlurper
+
+def lookupid = params.K8SSECRETID
+def SOURCE-DATA-JSONFILE = "k8s-secrets-metadata-v2.json"
 
 pipeline {
     agent {label 'master'}
     
      parameters {
-        string(name: 'K8SSECRETID', defaultValue: '', description: 'mention secretID')
+        string(name: 'K8SSECRETID', defaultValue: 'C01N01', description: 'mention secretID')
     }
     
     
@@ -19,70 +22,71 @@ pipeline {
         }
 
 
-       stage('read-un') {
+        stage('read-un') {
             steps {
                     script {
-                        def config                = readJSON file: 'k8s-secrets-metadata2.yaml'
-                        //def config                = jsonSlurper.parse(new File('k8s-secrets-metadata.yaml'))
+                        def config = readJSON(text: readFile("./"+SOURCE-DATA-JSONFILE).trim())
                         def K8SSECRETCN           = config.AllSecret.find { it.ID == lookupid }.ClusterName
                         def K8SNAMESPACE          = config.AllSecret.find { it.ID == lookupid }.NameSpace
                         def K8SSECRET_CREATE_UN   = config.AllSecret.find { it.ID == lookupid }.SecretsID.CREATE.UN
-                        def K8SSECRET_DELETE_DEL  = config.AllSecret.find { it.ID == lookupid }.SecretsID.DELETE.UN
+                        def K8SSECRET_DELETE_UN  = config.AllSecret.find { it.ID == lookupid }.SecretsID.DELETE.UN
 
-                        if (K8SSECRET_CREATE_UN) {
-                            K8SSECRET_CREATE_UN.each { item ->
+
+                        
+                        if (K8SSECRET_CREATE_UN){
+                            K8SSECRET_CREATE_UN.each { val ->
                                 withCredentials(
-                                [ usernamePassword(
-                                    credentialsId: item,
-                                    passwordVariable: 'SECRET_PWD',
-                                    usernameVariable: 'SECRET_UN'
-                                )]){
-                                    def K8SSECRETID = item
+                                    [   usernamePassword(
+                                        credentialsId: val,
+                                        passwordVariable: 'SECRET_PWD',
+                                        usernameVariable: 'SECRET_UN'
+                                    )]
+                                ){
+                                    def K8SSECRETID = val
+                                    def SECRETCREUNARCHFILE = "secret-cre-un-"+K8SSECRETID+".txt"
+                                    println(K8SSECRETID)
                                     sh """
-
-                                        echo $SECRET_UN > secret-cre-un.txt
-                                        echo $SECRET_PWD >> secret-cre-un.txt
-                                        ls -ltr
-                                        cat secret-cre-un.txt
-                                        
-                                        echo "kubectl -n $K8SNAMESPACE create secret generic $K8SSECRETID \
-                                            --from-literal=username=$SECRET_UN \
-                                            --from-literal=password=$SECRET_PWD"
+                                        echo $SECRET_UN > ${SECRETCREUNARCHFILE}
+                                        echo $SECRET_PWD >> ${SECRETCREUNARCHFILE}
+                                        #ls -ltr
+                                        #cat ${SECRETCREUNARCHFILE}
+                                        echo "kubectl -n $K8SNAMESPACE create secret generic $K8SSECRETID --from-literal=username=$SECRET_UN --from-literal=password=$SECRET_PWD"
                                     """
-                                    archiveArtifacts artifacts: 'secret-un.txt'
-                            
+                                    archiveArtifacts artifacts: SECRETCREUNARCHFILE
                                 }
+                                
                             }
                         }
 
-                        if (K8SSECRET_DELETE_UN) {
-                            K8SSECRET_DELETE_UN.each { item ->
+                        if (K8SSECRET_DELETE_UN){
+                            K8SSECRET_DELETE_UN.each { val ->
                                 withCredentials(
-                                [ usernamePassword(
-                                    credentialsId: item,
-                                    passwordVariable: 'SECRET_PWD',
-                                    usernameVariable: 'SECRET_UN'
-                                )]){
-                                    def K8SSECRETID = item
+                                    [   usernamePassword(
+                                        credentialsId: val,
+                                        passwordVariable: 'SECRET_PWD',
+                                        usernameVariable: 'SECRET_UN'
+                                    )]
+                                ){
+                                    def K8SSECRETID = val
+                                    def SECRETDELUNARCHFILE = "secret-cre-un-"+K8SSECRETID+".txt"
+                                    println(K8SSECRETID)
                                     sh """
-
-                                        echo $SECRET_UN > secret-del-un.txt
-                                        echo $SECRET_PWD >> secret-del-un.txt
-                                        ls -ltr
-                                        cat secret-un.txt
-                                        
-                                        echo "kubectl -n $K8SNAMESPACE create secret generic $K8SSECRETID \
-                                            --from-literal=username=$SECRET_UN \
-                                            --from-literal=password=$SECRET_PWD"
+                                        echo $SECRET_UN > ${SECRETDELUNARCHFILE}
+                                        echo $SECRET_PWD >> ${SECRETDELUNARCHFILE}
+                                        #ls -ltr
+                                        #cat ${SECRETDELUNARCHFILE}
+                                        echo "kubectl -n $K8SNAMESPACE delete secret generic $K8SSECRETID --from-literal=username=$SECRET_UN --from-literal=password=$SECRET_PWD"
                                     """
-                                    archiveArtifacts artifacts: 'secret-un.txt'
-                            
+                                    archiveArtifacts artifacts: SECRETDELUNARCHFILE
                                 }
+                                
                             }
                         }
+                        
                     }
-                } 
+                }
+            }
         }
 
-    }
+
 }
